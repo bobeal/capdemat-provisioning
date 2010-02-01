@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+
+<beans>
+
+  <bean id="ldapService" class="fr.cg95.admin.service.LdapService" init-method="init">
+    <property name="host" value="${ldap.host}" />
+    <property name="port" value="${ldap.port}" />
+    <property name="securityPrincipal" value="${ldap.security_principal}" />
+    <property name="securityCredentials" value="${ldap.security_credentials}" />
+    <property name="ditRoot" value="${ldap.dit_root}" />
+    <property name="peopleBranch" value="ou=people" />
+    <property name="groupBranch" value="ou=groups" />
+    <property name="schoolBranch" value="ou=schools" />
+    <property name="recreationCenterBranch" value="ou=recreation centers" />
+    <property name="administratorGroup" value="REFERENTIAL_ADMINISTRATORS"></property>
+  </bean>
+
+  <bean id="cvqProvisioningService"
+    class="org.springframework.remoting.caucho.HessianProxyFactoryBean">
+    <property name="serviceUrl">
+      <value>
+        http://${cvq.service.name}:${cvq.service.port}/${cvq.service.context_path}/ProvisioningService
+      </value>
+    </property>
+    <property name="serviceInterface">
+      <value>fr.cg95.cvq.exporter.service.bo.IProvisioningService</value>
+    </property>
+  </bean>
+
+</beans>
