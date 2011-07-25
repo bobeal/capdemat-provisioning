@@ -138,6 +138,16 @@ public class LdapService {
 
         logger.debug("authenticateAgent() authenticating " + login + " on local authority " + localAuthorityName);
 
+        if (superAdmin) {
+            if (password.equals(securityCredentials)) {
+                Agent agent = new Agent();
+                agent.setUid(login);
+                return agent;
+            } else {
+                return null;
+            }
+        } 
+
         DirContext dirContext = gimmeAContext();
         NamingEnumeration agentsEnumeration = null;
         try {
@@ -145,14 +155,10 @@ public class LdapService {
             SearchControls controls = getSearchControls(SearchControls.SUBTREE_SCOPE);
             StringBuffer ldapQueryBuffer = new StringBuffer();
             StringBuffer filterBuffer = new StringBuffer();
-            if (superAdmin) {
-                ldapQueryBuffer.append("(&(objectClass=organizationalRole)(cn=").append(login).append("))");
-                filterBuffer.append(ditRoot);
-            } else {
-                ldapQueryBuffer.append("(&(objectClass=inetOrgPerson)(uid=").append(login).append("))");
-                filterBuffer.append(getDn(null, null, null, localAuthorityName, ditRoot));
-            }
+            ldapQueryBuffer.append("(&(objectClass=inetOrgPerson)(uid=").append(login).append("))");
+            filterBuffer.append(getDn(null, null, null, localAuthorityName, ditRoot));
 
+            SearchResult result = (SearchResult) agentsEnumeration.next();
             agentsEnumeration =
                 dirContext.search(filterBuffer.toString(), ldapQueryBuffer.toString(), controls);
 
@@ -160,37 +166,26 @@ public class LdapService {
                 return null;
             }
 
-            SearchResult result = (SearchResult) agentsEnumeration.next();
-            if (superAdmin) {
-                if (password.equals(securityCredentials)) {
-                    Agent agent = new Agent();
-                    agent.setUid(login);
-                    return agent;
-                } else {
-                    return null;
-                }
-            } else {
-                byte[] pwdBytes = (byte[]) result.getAttributes().get("userPassword").get();
-                String ldapPassword = new String(pwdBytes);
-                logger.debug("authenticateAgent() retrieved raw LDAP password : " + ldapPassword);
-                String purgedLdapPassword = ldapPassword.substring(5);
-                logger.debug("authenticateAgent() retrieved LDAP password : " + purgedLdapPassword);
-                String encodedUserPassword = encryptPassword(password);
-                logger.debug("authenticateAgent() comparing with : " + encodedUserPassword);
+            byte[] pwdBytes = (byte[]) result.getAttributes().get("userPassword").get();
+            String ldapPassword = new String(pwdBytes);
+            logger.debug("authenticateAgent() retrieved raw LDAP password : " + ldapPassword);
+            String purgedLdapPassword = ldapPassword.substring(5);
+            logger.debug("authenticateAgent() retrieved LDAP password : " + purgedLdapPassword);
+            String encodedUserPassword = encryptPassword(password);
+            logger.debug("authenticateAgent() comparing with : " + encodedUserPassword);
 
-                if (!purgedLdapPassword.equals(encodedUserPassword)) {
-                    return null;
-                } else {
-                    Agent agent = fillAgentFromAttributes(localAuthorityName, result.getAttributes());
-                    String[] agentGroups = agent.getGroups();
-                    for (int i = 0; i < agentGroups.length; i++) {
-                        if (administratorGroup.equals(agentGroups[i])) {
-                            return agent;
-                        }
+            if (!purgedLdapPassword.equals(encodedUserPassword)) {
+                return null;
+            } else {
+                Agent agent = fillAgentFromAttributes(localAuthorityName, result.getAttributes());
+                String[] agentGroups = agent.getGroups();
+                for (int i = 0; i < agentGroups.length; i++) {
+                    if (administratorGroup.equals(agentGroups[i])) {
+                        return agent;
                     }
-                    logger.debug("authenticateAgent() agent does not belong to authorized group");
-                    return null;
                 }
+                logger.debug("authenticateAgent() agent does not belong to authorized group");
+                return null;
             }
         } catch (NamingException ne) {
             ne.printStackTrace();
